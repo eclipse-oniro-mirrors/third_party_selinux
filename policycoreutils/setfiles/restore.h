@@ -3,7 +3,6 @@
 #ifndef _GNU_SOURCE
 #define _GNU_SOURCE
 #endif
-#include <fts.h>
 #include <errno.h>
 #include <string.h>
 #include <stdio.h>
