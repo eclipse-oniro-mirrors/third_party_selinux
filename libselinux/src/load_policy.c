@@ -46,9 +46,9 @@ int security_load_policy(void *data, size_t len)
 }
 
 hidden_def(security_load_policy)
-
-#ifndef ANDROID
 int load_setlocaldefs hidden = 1;
+#ifndef ANDROID
+
 
 #undef max
 #define max(a, b) (((a) > (b)) ? (a) : (b))
