@@ -1,0 +1,2 @@
+/ u:object_r:rootfs:so
+/data(/.*)? u:object_r:data_file:s0
