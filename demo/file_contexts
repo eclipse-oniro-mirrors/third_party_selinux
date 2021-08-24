@@ -1,2 +1,1 @@
-/ u:object_r:rootfs:s0
-/data(/.*)? u:object_r:data_file:s0
+/ u:object_r:unlabeled:s0
