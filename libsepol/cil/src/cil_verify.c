@@ -1101,7 +1101,8 @@ static int __cil_verify_booleanif_helper(struct cil_tree_node *node, __attribute
 	struct cil_booleanif *bif = node->parent->parent->data;
 
 	switch (rule_node->flavor) {
-	case CIL_AVRULE: {
+	case CIL_AVRULE:
+	case CIL_AVRULEX: {
 		struct cil_avrule *avrule = NULL;
 		avrule = rule_node->data;
 		if (avrule->rule_kind == CIL_AVRULE_NEVERALLOW) {
@@ -1175,6 +1176,9 @@ static int __cil_verify_booleanif_helper(struct cil_tree_node *node, __attribute
 		   booleanif statements if they don't have "*" as the file. We
 		   can't check that here. Or at least we won't right now. */
 		break;
+	case CIL_SRC_INFO:
+		//Fall through
+		break;
 	default: {
 		const char * flavor = cil_node_to_string(node);
 		if (bif->preserved_tunable) {
@@ -1236,6 +1240,11 @@ static int __cil_verify_netifcon(struct cil_db *db, struct cil_tree_node *node)
 		if (rc != SEPOL_OK) {
 			goto exit;
 		}
+	}
+
+	if (strcmp(netif->interface_str, "?") == 0 ||
+	    strcmp(netif->interface_str, "*") == 0) {
+		goto exit;
 	}
 
 	return SEPOL_OK;
@@ -1512,6 +1521,9 @@ static int __cil_verify_permissionx(struct cil_permissionx *permx, struct cil_tr
 	switch (permx->kind) {
 		case CIL_PERMX_KIND_IOCTL:
 			kind_str = CIL_KEY_IOCTL;
+			break;
+		case CIL_PERMX_KIND_NLMSG:
+			kind_str = CIL_KEY_NLMSG;
 			break;
 		default:
 			cil_tree_log(node, CIL_ERR, "Invalid permissionx kind (%d)", permx->kind);

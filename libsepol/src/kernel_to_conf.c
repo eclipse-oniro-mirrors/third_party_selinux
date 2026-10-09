@@ -1419,7 +1419,7 @@ static int map_type_aliases_to_strs(char *key, void *data, void *args)
 static int write_type_alias_rules_to_conf(FILE *out, struct policydb *pdb)
 {
 	type_datum_t *alias;
-	struct strs *strs;
+	struct strs *strs = NULL;
 	char *name;
 	char *type;
 	unsigned i, num = 0;
@@ -1685,6 +1685,48 @@ exit:
 
 	if (rc != 0) {
 		ERR(NULL, "Error writing typepermissive rules to policy.conf");
+	}
+
+	return rc;
+}
+
+static int write_type_neveraudit_rules_to_conf(FILE *out, struct policydb *pdb)
+{
+	struct strs *strs;
+	char *name;
+	struct ebitmap_node *node;
+	unsigned i, num;
+	int rc = 0;
+
+	rc = strs_init(&strs, pdb->p_types.nprim);
+	if (rc != 0) {
+		goto exit;
+	}
+
+	ebitmap_for_each_positive_bit(&pdb->neveraudit_map, node, i) {
+		rc = strs_add(strs, pdb->p_type_val_to_name[i-1]);
+		if (rc != 0) {
+			goto exit;
+		}
+	}
+
+	strs_sort(strs);
+
+	num = strs_num_items(strs);
+	for (i=0; i<num; i++) {
+		name = strs_read_at_index(strs, i);
+		if (!name) {
+			rc = -1;
+			goto exit;
+		}
+		sepol_printf(out, "neveraudit %s;\n", name);
+	}
+
+exit:
+	strs_destroy(&strs);
+
+	if (rc != 0) {
+		ERR(NULL, "Error writing typeneveraudit rules to policy.conf");
 	}
 
 	return rc;
@@ -2556,6 +2598,8 @@ static int write_genfscon_rules_to_conf(FILE *out, struct policydb *pdb)
 	uint32_t sclass;
 	const char *file_type;
 	int rc;
+	int wildcard = ebitmap_get_bit(&pdb->policycaps, POLICYDB_CAP_GENFS_SECLABEL_WILDCARD);
+	size_t name_len;
 
 	rc = strs_init(&strs, 32);
 	if (rc != 0) {
@@ -2597,12 +2641,22 @@ static int write_genfscon_rules_to_conf(FILE *out, struct policydb *pdb)
 				goto exit;
 			}
 
+			name_len = strlen(name);
+			if (wildcard) {
+				if (name_len == 0 || name[name_len - 1] != '*') {
+					ERR(NULL, "genfscon path must end with '*' when genfs_seclabel_wildcard");
+					rc = -1;
+					goto exit;
+				}
+				--name_len;
+			}
+
 			if (file_type) {
-				rc = strs_create_and_add(strs, "genfscon %s \"%s\" %s %s",
-										 fstype, name, file_type, ctx);
+				rc = strs_create_and_add(strs, "genfscon %s \"%.*s\" %s %s",
+				                         fstype, (int)name_len, name, file_type, ctx);
 			} else {
-				rc = strs_create_and_add(strs, "genfscon %s \"%s\" %s",
-										 fstype, name, ctx);
+				rc = strs_create_and_add(strs, "genfscon %s \"%.*s\" %s",
+				                         fstype, (int)name_len, name, ctx);
 			}
 			free(ctx);
 			if (rc != 0) {
@@ -3213,6 +3267,11 @@ int sepol_kernel_policydb_to_conf(FILE *out, struct policydb *pdb)
 	}
 
 	rc = write_type_permissive_rules_to_conf(out, pdb);
+	if (rc != 0) {
+		goto exit;
+	}
+
+	rc = write_type_neveraudit_rules_to_conf(out, pdb);
 	if (rc != 0) {
 		goto exit;
 	}

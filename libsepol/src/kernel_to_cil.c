@@ -1436,7 +1436,7 @@ static int map_type_aliases_to_strs(char *key, void *data, void *args)
 static int write_type_alias_rules_to_cil(FILE *out, struct policydb *pdb)
 {
 	type_datum_t *alias;
-	struct strs *strs;
+	struct strs *strs = NULL;
 	char *name;
 	char *type;
 	unsigned i, num = 0;
@@ -1637,6 +1637,48 @@ exit:
 	return rc;
 }
 
+static int write_type_neveraudit_rules_to_cil(FILE *out, struct policydb *pdb)
+{
+	struct strs *strs;
+	char *name;
+	struct ebitmap_node *node;
+	unsigned i, num;
+	int rc = 0;
+
+	rc = strs_init(&strs, pdb->p_types.nprim);
+	if (rc != 0) {
+		goto exit;
+	}
+
+	ebitmap_for_each_positive_bit(&pdb->neveraudit_map, node, i) {
+		rc = strs_add(strs, pdb->p_type_val_to_name[i-1]);
+		if (rc != 0) {
+			goto exit;
+		}
+	}
+
+	strs_sort(strs);
+
+	num = strs_num_items(strs);
+	for (i=0; i<num; i++) {
+		name = strs_read_at_index(strs, i);
+		if (!name) {
+			rc = -1;
+			goto exit;
+		}
+		sepol_printf(out, "(typeneveraudit %s)\n", name);
+	}
+
+exit:
+	strs_destroy(&strs);
+
+	if (rc != 0) {
+		ERR(NULL, "Error writing typeneveraudit rules to CIL");
+	}
+
+	return rc;
+}
+
 #define next_bit_in_range(i, p) (((i) + 1 < sizeof(p)*8) && xperm_test(((i) + 1), p))
 
 static char *xperms_to_str(const avtab_extended_perms_t *xperms)
@@ -1651,7 +1693,8 @@ static char *xperms_to_str(const avtab_extended_perms_t *xperms)
 	size_t remaining, size = 128;
 
 	if ((xperms->specified != AVTAB_XPERMS_IOCTLFUNCTION)
-		&& (xperms->specified != AVTAB_XPERMS_IOCTLDRIVER)) {
+		&& (xperms->specified != AVTAB_XPERMS_IOCTLDRIVER)
+		&& (xperms->specified != AVTAB_XPERMS_NLMSG)) {
 		return NULL;
 	}
 
@@ -1681,7 +1724,8 @@ retry:
 			continue;
 		}
 
-		if (xperms->specified & AVTAB_XPERMS_IOCTLFUNCTION) {
+		if ((xperms->specified == AVTAB_XPERMS_IOCTLFUNCTION)
+		 || (xperms->specified == AVTAB_XPERMS_NLMSG)) {
 			value = xperms->driver<<8 | bit;
 			if (in_range) {
 				low_value = xperms->driver<<8 | low_bit;
@@ -1690,7 +1734,7 @@ retry:
 			} else {
 				len = snprintf(p, remaining, " 0x%hx", value);
 			}
-		} else if (xperms->specified & AVTAB_XPERMS_IOCTLDRIVER) {
+		} else if (xperms->specified == AVTAB_XPERMS_IOCTLDRIVER) {
 			value = bit << 8;
 			if (in_range) {
 				low_value = low_bit << 8;
@@ -1728,7 +1772,7 @@ static char *avtab_node_to_str(struct policydb *pdb, avtab_key_t *key, avtab_dat
 	uint32_t data = datum->data;
 	type_datum_t *type;
 	const char *flavor, *tgt;
-	char *src, *class, *perms, *new;
+	char *src, *class, *perms, *new, *xperm;
 	char *rule = NULL;
 
 	switch (0xFFF & key->specified) {
@@ -1795,9 +1839,16 @@ static char *avtab_node_to_str(struct policydb *pdb, avtab_key_t *key, avtab_dat
 			ERR(NULL, "Failed to generate extended permission string");
 			goto exit;
 		}
-
+		if (datum->xperms->specified == AVTAB_XPERMS_IOCTLFUNCTION || datum->xperms->specified == AVTAB_XPERMS_IOCTLDRIVER) {
+			xperm = (char *) "ioctl";
+		} else if (datum->xperms->specified == AVTAB_XPERMS_NLMSG) {
+			xperm = (char *) "nlmsg";
+		} else {
+			ERR(NULL, "Unknown extended permission");
+			goto exit;
+		}
 		rule = create_str("(%s %s %s (%s %s (%s)))",
-				  flavor, src, tgt, "ioctl", class, perms);
+				  flavor, src, tgt, xperm, class, perms);
 		free(perms);
 	} else {
 		new = pdb->p_type_val_to_name[data - 1];
@@ -2699,6 +2750,8 @@ static int write_genfscon_rules_to_cil(FILE *out, struct policydb *pdb)
 	uint32_t sclass;
 	const char *file_type;
 	int rc;
+	int wildcard = ebitmap_get_bit(&pdb->policycaps, POLICYDB_CAP_GENFS_SECLABEL_WILDCARD);
+	size_t name_len;
 
 	rc = strs_init(&strs, 32);
 	if (rc != 0) {
@@ -2740,12 +2793,22 @@ static int write_genfscon_rules_to_cil(FILE *out, struct policydb *pdb)
 				goto exit;
 			}
 
+			name_len = strlen(name);
+			if (wildcard) {
+				if (name_len == 0 || name[name_len - 1] != '*') {
+					ERR(NULL, "genfscon path must end with '*' when genfs_seclabel_wildcard");
+					rc = -1;
+					goto exit;
+				}
+				--name_len;
+			}
+
 			if (file_type) {
-				rc = strs_create_and_add(strs, "(genfscon %s \"%s\" %s %s)",
-										 fstype, name, file_type, ctx);
+				rc = strs_create_and_add(strs, "(genfscon %s \"%.*s\" %s %s)",
+				                         fstype, (int)name_len, name, file_type, ctx);
 			} else {
-				rc = strs_create_and_add(strs, "(genfscon %s \"%s\" %s)",
-										 fstype, name, ctx);
+				rc = strs_create_and_add(strs, "(genfscon %s \"%.*s\" %s)",
+				                         fstype, (int)name_len, name, ctx);
 			}
 			free(ctx);
 			if (rc != 0) {
@@ -3349,6 +3412,11 @@ int sepol_kernel_policydb_to_cil(FILE *out, struct policydb *pdb)
 	}
 
 	rc = write_type_permissive_rules_to_cil(out, pdb);
+	if (rc != 0) {
+		goto exit;
+	}
+
+	rc = write_type_neveraudit_rules_to_cil(out, pdb);
 	if (rc != 0) {
 		goto exit;
 	}

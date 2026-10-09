@@ -190,7 +190,7 @@ static int create_symbol(uint32_t symbol_type, hashtab_key_t key, hashtab_datum_
  * not be restricted pointers. */
 int declare_symbol(uint32_t symbol_type,
 		   hashtab_key_t key, hashtab_datum_t datum,
-		   uint32_t * dest_value, uint32_t * datum_value)
+		   uint32_t * dest_value, const uint32_t * datum_value)
 {
 	avrule_decl_t *decl = stack_top->decl;
 	int ret = create_symbol(symbol_type, key, datum, dest_value, SCOPE_DECL);
@@ -291,6 +291,7 @@ static int create_role(uint32_t scope, unsigned char isattr, role_datum_t **role
 		if (*role && (isattr != (*role)->flavor)) {
 			yyerror2("Identifier %s used as both an attribute and a role",
 				 id);
+			*role = NULL;
 			free(id);
 			role_datum_destroy(datum);
 			free(datum);
@@ -428,6 +429,7 @@ static int create_type(uint32_t scope, unsigned char isattr, type_datum_t **type
 		if (*type && (isattr != (*type)->flavor)) {
 			yyerror2("Identifier %s used as both an attribute and a type",
 				 id);
+			*type = NULL;
 			free(id);
 			return -1;
 		}

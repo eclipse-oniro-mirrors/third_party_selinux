@@ -171,7 +171,6 @@ selinux_sources = [
   "$LIBSELINUX_ROOT_DIR/src/getenforce.c",
   "$LIBSELINUX_ROOT_DIR/src/getfilecon.c",
   "$LIBSELINUX_ROOT_DIR/src/getpeercon.c",
-  "$LIBSELINUX_ROOT_DIR/src/hashtab.c",
   "$LIBSELINUX_ROOT_DIR/src/ignore_path.c",
   "$LIBSELINUX_ROOT_DIR/src/init.c",
   "$LIBSELINUX_ROOT_DIR/src/is_customizable_type.c",
@@ -226,6 +225,7 @@ ohos_shared_library("libselinux") {
 
   cflags = [
     "-DOHOS_FC_INIT",
+    "-D__INO_T_MATCHES_INO64_T",
     "-D_GNU_SOURCE",
     "-w",
     "-DSHARED",
@@ -279,6 +279,7 @@ ohos_static_library("libselinux_static") {
 
   cflags = [
     "-DOHOS_FC_INIT",
+    "-D__INO_T_MATCHES_INO64_T",
     "-D_GNU_SOURCE",
     "-w",
     "-DSHARED",
@@ -444,6 +445,7 @@ action("check_md5_checkpolicy") {
   outputs = [
     "$target_gen_dir/checkpolicy/policy_scan.c",
     "$target_gen_dir/checkpolicy/y.tab.c",
+    "$target_gen_dir/checkpolicy/y.tab.h",
   ]
 }
 

@@ -75,6 +75,7 @@
 	"role_set_init";
 	"type_set_init";
 	"role_set_expand";
+	"role_set_destroy";
 	"role_allow_rule_init";
 	"role_allow_rule_destroy";
 	"policydb_filetrans_insert";

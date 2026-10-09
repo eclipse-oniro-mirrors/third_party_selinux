@@ -14,12 +14,12 @@ if [ -f ${md5sum_file} ];then
     this_md5=$(md5sum ${input_file} | awk '{print $1}')
     if [ $last_md5 != $this_md5 ];then
         # update md5 file
-        md5sum ${input_file} | awk '{print $1}' > ${md5sum_file}
-        echo "update md5sum file"
+        # md5sum ${input_file} | awk '{print $1}' > ${md5sum_file}
+        echo "input file changed, need regenerate"
         exit       
     fi
 else
-    md5sum ${input_file} | awk '{print $1}' > ${md5sum_file}
-    echo "md5sum file doesn't exit."
+    # md5sum ${input_file} | awk '{print $1}' > ${md5sum_file}
+    echo "md5sum file doesn't exist, need regenerate"
     exit
 fi
