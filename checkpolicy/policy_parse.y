@@ -74,6 +74,7 @@ typedef int (* require_func_t)(int pass);
 
 %type <ptr> cond_expr cond_expr_prim cond_pol_list cond_else
 %type <ptr> cond_allow_def cond_auditallow_def cond_auditdeny_def cond_dontaudit_def
+%type <ptr> cond_xperm_allow_def cond_xperm_auditallow_def cond_xperm_dontaudit_def
 %type <ptr> cond_transition_def cond_te_avtab_def cond_rule_def
 %type <valptr> cexpr cexpr_prim op role_mls_op
 %type <val> ipv4_addr_def number
@@ -151,7 +152,9 @@ typedef int (* require_func_t)(int pass);
 %token MODULE VERSION_IDENTIFIER REQUIRE OPTIONAL
 %token POLICYCAP
 %token PERMISSIVE
+%token NEVERAUDIT
 %token FILESYSTEM
+%token NETIFNAME
 %token DEFAULT_USER DEFAULT_ROLE DEFAULT_TYPE DEFAULT_RANGE
 %token LOW_HIGH LOW HIGH GLBLUB
 %token INVALID_CHAR
@@ -329,6 +332,7 @@ te_decl			: attribute_def
                         | range_trans_def
                         | te_avtab_def
 			| permissive_def
+			| neveraudit_def
 			;
 attribute_def           : ATTRIBUTE identifier ';'
                         { if (define_attrib()) YYABORT;}
@@ -432,6 +436,12 @@ cond_te_avtab_def	: cond_allow_def
 			  { $$ = $1; }
 			| cond_dontaudit_def
 			  { $$ = $1; }
+			| cond_xperm_allow_def
+			  { $$ = $1; }
+			| cond_xperm_auditallow_def
+			  { $$ = $1; }
+			| cond_xperm_dontaudit_def
+			  { $$ = $1; }
 			;
 cond_allow_def		: ALLOW names names ':' names names  ';'
 			{ $$ = define_cond_te_avtab(AVRULE_ALLOWED) ;
@@ -449,7 +459,18 @@ cond_dontaudit_def	: DONTAUDIT names names ':' names names ';'
 			{ $$ = define_cond_te_avtab(AVRULE_DONTAUDIT);
                           if ($$ == COND_ERR) YYABORT; }
 		        ;
-			;
+cond_xperm_allow_def		: ALLOWXPERM names names ':' names identifier xperms ';'
+				{ $$ = define_cond_te_avtab_extended_perms(AVRULE_XPERMS_ALLOWED) ;
+				  if ($$ == COND_ERR) YYABORT; }
+				;
+cond_xperm_auditallow_def	: AUDITALLOWXPERM names names ':' names identifier xperms ';'
+				{ $$ = define_cond_te_avtab_extended_perms(AVRULE_XPERMS_AUDITALLOW) ;
+				  if ($$ == COND_ERR) YYABORT; }
+				;
+cond_xperm_dontaudit_def	: DONTAUDITXPERM names names ':' names identifier xperms ';'
+				{ $$ = define_cond_te_avtab_extended_perms(AVRULE_XPERMS_DONTAUDIT) ;
+				  if ($$ == COND_ERR) YYABORT; }
+				;
 transition_def		: TYPE_TRANSITION  names names ':' names identifier filename ';'
 			{if (define_filename_trans()) YYABORT; }
 			| TYPE_TRANSITION names names ':' names identifier ';'
@@ -730,7 +751,7 @@ opt_netif_contexts      : netif_contexts
 netif_contexts		: netif_context_def
 			| netif_contexts netif_context_def
 			;
-netif_context_def	: NETIFCON identifier security_context_def security_context_def
+netif_context_def	: NETIFCON netifname security_context_def security_context_def
 			{if (define_netif_context()) YYABORT;}
 			;
 opt_node_contexts       : node_contexts 
@@ -883,6 +904,13 @@ path     		: PATH
 filename		: FILENAME
 			{ yytext[strlen(yytext) - 1] = '\0'; if (insert_id(yytext + 1,0)) YYABORT; }
 			;
+netifname		: NETIFNAME
+			{ if (insert_id(yytext,0)) YYABORT; }
+			| IDENTIFIER
+			{ if (insert_id(yytext,0)) YYABORT; }
+			| FILESYSTEM
+			{ if (insert_id(yytext,0)) YYABORT; }
+                        ;
 number			: NUMBER 
 			{ unsigned long x;
 			  errno = 0;
@@ -916,6 +944,8 @@ policycap_def		: POLICYCAP identifier ';'
 			;
 permissive_def		: PERMISSIVE identifier ';'
 			{if (define_permissive()) YYABORT;}
+neveraudit_def		: NEVERAUDIT identifier ';'
+			{if (define_neveraudit()) YYABORT;}
 
 /*********** module grammar below ***********/
 

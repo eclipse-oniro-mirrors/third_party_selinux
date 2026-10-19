@@ -19,6 +19,10 @@ function exec_check_md5() {
         elif [[ "$tool" == "bison" ]]; then
             bison -y -d "$input_file" -o "$output_file"
         fi
+        if [[ $? -ne 0 ]]; then
+            exit 1
+        fi
+        md5sum "$input_file" |  awk '{print $1}' > "$md5_file"
     fi
 }
 

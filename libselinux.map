@@ -45,6 +45,8 @@
     fsetfilecon;
     fsetfilecon_raw;
     free_ignore_cfg;
+    free_spec_node;
+    sort_spec_node;
     getcon;
     getcon_raw;
     getexeccon;
@@ -263,14 +265,6 @@
     fts_set_clientptr;
     g_ignore_paths;
     has_selinux_config;
-    hashtab_create;
-    hashtab_destroy;
-    hashtab_destroy_key;
-    hashtab_hash_eval;
-    hashtab_insert;
-    hashtab_map;
-    hashtab_remove;
-    hashtab_search;
     insert_ignore_path;
     is_in_app_allow_config;
     load_app_allow_config;
@@ -309,6 +303,7 @@
     selinux_validate;
     setrans_lib_destructor;
     sidtab_context_to_sid;
+    sidtab_context_lookup;
     sidtab_destroy;
     sidtab_init;
     sidtab_insert;
