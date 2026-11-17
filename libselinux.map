@@ -45,8 +45,14 @@
     fsetfilecon;
     fsetfilecon_raw;
     free_ignore_cfg;
-    free_spec_node;
-    sort_spec_node;
+    hashtab_create;
+    hashtab_destroy;
+    hashtab_destroy_key;
+    hashtab_hash_eval;
+    hashtab_insert;
+    hashtab_map;
+    hashtab_remove;
+    hashtab_search;
     getcon;
     getcon_raw;
     getexeccon;
